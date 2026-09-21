@@ -1,5 +1,7 @@
 // Understanding AI with Kathryn — shared site behavior
-// Preview build: no network calls, no data storage, no analytics. All forms are demo-only.
+// The intake form (form[data-real-form]) submits by email via FormSubmit.co.
+// It never books or charges anything — booking and payment happen only through
+// the Gumroad links on the offer page.
 (function () {
   "use strict";
 
@@ -49,8 +51,62 @@
     });
   }
 
+  // Real form handler: attach to any <form data-real-form> on the page.
+  // Submits via fetch to the form's action (FormSubmit.co) and shows an
+  // inline confirmation instead of navigating away.
+  function initRealForms() {
+    var forms = document.querySelectorAll("form[data-real-form]");
+    forms.forEach(function (form) {
+      var status = form.querySelector(".form-status");
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        if (!form.checkValidity()) {
+          form.reportValidity();
+          return;
+        }
+        var submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+        var data = new FormData(form);
+        fetch(form.action, {
+          method: "POST",
+          body: data,
+          headers: { Accept: "application/json" },
+        })
+          .then(function (res) {
+            if (!res.ok) throw new Error("Request failed");
+            return res.json();
+          })
+          .then(function () {
+            if (status) {
+              status.textContent =
+                "Sent — thank you. Kathryn will follow up by email. This only sends your answers; it doesn't book or charge anything. To book a tier, use the Gumroad links on the offer page.";
+              status.classList.add("show");
+              status.setAttribute("role", "status");
+              status.tabIndex = -1;
+              status.focus();
+            }
+            form.reset();
+          })
+          .catch(function () {
+            if (status) {
+              status.textContent =
+                "Something went wrong sending this. Please try again, or email understandingaiwithkathryn@gmail.com directly.";
+              status.classList.add("show");
+              status.setAttribute("role", "alert");
+              status.tabIndex = -1;
+              status.focus();
+            }
+          })
+          .finally(function () {
+            if (submitBtn) submitBtn.disabled = false;
+          });
+      });
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     initNavToggle();
     initDemoForms();
+    initRealForms();
   });
 })();
